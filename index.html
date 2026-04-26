@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐱🌧️ Rain Cat — 猫猫躲雨奇遇记</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @font-face {
+    font-family: 'Pixel';
+    src: local('Courier New');
+  }
+
+  :root {
+    --warm: #ffb347;
+    --warm-dim: rgba(255, 179, 71, 0.27);
+    --warm-glow: rgba(255, 179, 71, 0.3);
+    --accent: #ff6b6b;
+    --rain: #7ec8e3;
+    --bg: #1a1a2e;
+  }
+
+  body {
+    background: var(--bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Georgia', serif;
+    overflow: hidden;
+    color: #e0d5c1;
+  }
+
+  #game-container {
+    position: relative;
+    width: 960px;
+    height: 700px;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  #scene-canvas {
+    width: 960px;
+    height: 640px;
+    display: block;
+    image-rendering: pixelated;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+  }
+
+  /* 对话框 */
+  #dialogue-box {
+    position: absolute;
+    bottom: 60px;
+    left: 0;
+    right: 0;
+    background: rgba(30, 25, 20, 0.95);
+    border-top: 2px solid var(--warm);
+    border-bottom: 2px solid var(--warm);
+    padding: 15px 20px;
+    min-height: 120px;
+    display: none;
+    z-index: 10;
+  }
+
+  #dialogue-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  #dialogue-portrait {
+    width: 80px;
+    height: 80px;
+    border: 2px solid var(--warm);
+    border-radius: 50%;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+    display: none;
+    box-shadow: 0 0 12px var(--warm-glow);
+  }
+
+  #dialogue-portrait.visible {
+    display: block;
+  }
+
+  #dialogue-content {
+    flex: 1;
+  }
+
+  #dialogue-speaker {
+    color: var(--warm);
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  #dialogue-text {
+    color: #e0d5c1;
+    font-size: 15px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  #dialogue-choices {
+    margin-top: 10px;
+  }
+
+  .choice-btn {
+    display: block;
+    background: rgba(255, 179, 71, 0.1);
+    border: 1px solid var(--warm);
+    color: var(--warm);
+    padding: 8px 16px;
+    margin: 5px 0;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .choice-btn:hover {
+    background: rgba(255, 179, 71, 0.3);
+    transform: translateX(4px);
+  }
+
+  /* 状态栏 */
+  #status-bar {
+    width: 960px;
+    height: 60px;
+    background: rgba(30, 25, 20, 0.95);
+    border-top: 1px solid rgba(255, 179, 71, 0.3);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 20px;
+    border-radius: 0 0 8px 8px;
+  }
+
+  #scene-name {
+    color: var(--warm);
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  #inventory-display {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .inv-item {
+    background: rgba(255, 179, 71, 0.15);
+    border: 1px solid var(--warm);
+    color: var(--warm);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  #friends-display {
+    color: #ff6b6b;
+    font-size: 13px;
+  }
+
+  /* 标题画面 */
+  #title-screen {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    cursor: pointer;
+  }
+
+  #title-screen h1 {
+    font-size: 48px;
+    color: var(--warm);
+    text-shadow: 0 0 20px var(--warm-glow);
+    margin-bottom: 8px;
+  }
+
+  #title-screen h2 {
+    font-size: 20px;
+    color: var(--rain);
+    font-weight: normal;
+    margin-bottom: 40px;
+  }
+
+  #title-screen .start-hint {
+    color: rgba(255, 179, 71, 0.6);
+    font-size: 14px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  /* 结局画面 */
+  #ending-screen {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    text-align: center;
+    padding: 40px;
+  }
+
+  #ending-screen h1 {
+    font-size: 36px;
+    color: var(--warm);
+    margin-bottom: 20px;
+  }
+
+  #ending-screen p {
+    color: #e0d5c1;
+    font-size: 16px;
+    line-height: 2;
+    max-width: 600px;
+  }
+
+  /* 雨滴效果 */
+  .rain-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 960px;
+    height: 640px;
+    pointer-events: none;
+    z-index: 5;
+  }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+  <canvas id="scene-canvas" width="960" height="640"></canvas>
+  <canvas class="rain-overlay" id="rain-canvas" width="960" height="640"></canvas>
+
+  <div id="dialogue-box">
+    <div id="dialogue-inner">
+      <img id="dialogue-portrait" src="" alt="">
+      <div id="dialogue-content">
+        <div id="dialogue-speaker"></div>
+        <div id="dialogue-text"></div>
+        <div id="dialogue-choices"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status-bar">
+    <div id="scene-name">🌧️ 雨夜小巷</div>
+    <div id="inventory-display"></div>
+    <div id="friends-display"></div>
+  </div>
+
+  <!-- 标题画面 -->
+  <div id="title-screen">
+    <h1>🐱 Rain Cat</h1>
+    <h2>猫猫躲雨奇遇记</h2>
+    <p class="start-hint">~ 点击开始 ~</p>
+  </div>
+
+  <!-- 结局画面 -->
+  <div id="ending-screen">
+    <h1>🌙 猫猫的星空</h1>
+    <div id="ending-text"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  🐱🌧️ RAIN CAT — 游戏引擎
+// ============================================================
+
+const canvas = document.getElementById('scene-canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const rainCanvas = document.getElementById('rain-canvas');
+const rainCtx = rainCanvas.getContext('2d');
+
+const Game = {
+  canvas, ctx,
+  currentScene: null,
+  bgFrames: {},
+  currentFrame: 0,
+  frameTimer: 0,
+  frameInterval: 1000,
+  inventory: [],
+  flags: {},
+  friends: [],
+  portraits: {},
+  running: false,
+  dialogueQueue: [],
+  isDialogueActive: false,
+
+  // 雨效参数
+  rain: {
+    drops: [],
+    intensity: 1.0,
+    active: true,
+  },
+
+  async init() {
+    // 加载背景图
+    const scenes = ['rainy_alley', 'bookshop', 'garden', 'bridge', 'rooftop'];
+    for (const s of scenes) {
+      const img = new Image();
+      img.src = `assets/${s}_f0.png`;
+      await new Promise(r => { img.onload = r; img.onerror = r; });
+      this.bgFrames[s] = img;
+    }
+
+    // 加载角色肖像
+    const chars = ['miao', 'shopkeeper', 'butterfly', 'bird', 'fish', 'moon'];
+    for (const c of chars) {
+      const img = new Image();
+      img.src = `assets/${c}.png`;
+      await new Promise(r => { img.onload = r; img.onerror = r; });
+      this.portraits[c] = img;
+    }
+
+    // 初始化雨滴
+    this.initRain();
+
+    // 开始游戏循环
+    this.running = true;
+    this.lastTime = performance.now();
+    requestAnimationFrame(t => this.loop(t));
+
+    // 标题画面点击
+    document.getElementById('title-screen').onclick = () => {
+      document.getElementById('title-screen').style.display = 'none';
+      this.goScene('rainy_alley');
+    };
+
+    // 点击画面
+    this.canvas.addEventListener('click', (e) => this.handleClick(e));
+  },
+
+  // ── 雨效系统 ──
+  initRain() {
+    this.rain.drops = [];
+    for (let i = 0; i < 200; i++) {
+      this.rain.drops.push({
+        x: Math.random() * 960,
+        y: Math.random() * 640,
+        len: Math.random() * 20 + 10,
+        speed: Math.random() * 8 + 4,
+        opacity: Math.random() * 0.3 + 0.1,
+      });
+    }
+  },
+
+  renderRain(dt) {
+    if (!this.rain.active) {
+      rainCtx.clearRect(0, 0, 960, 640);
+      return;
+    }
+    rainCtx.clearRect(0, 0, 960, 640);
+    rainCtx.strokeStyle = 'rgba(174, 210, 230, 0.3)';
+
+    for (const drop of this.rain.drops) {
+      drop.y += drop.speed * this.rain.intensity;
+      drop.x -= 1.5 * this.rain.intensity;
+
+      if (drop.y > 640) {
+        drop.y = -drop.len;
+        drop.x = Math.random() * 960;
+      }
+      if (drop.x < -10) drop.x = 970;
+
+      rainCtx.globalAlpha = drop.opacity * this.rain.intensity;
+      rainCtx.beginPath();
+      rainCtx.moveTo(drop.x, drop.y);
+      rainCtx.lineTo(drop.x + 1.5, drop.y + drop.len);
+      rainCtx.stroke();
+    }
+    rainCtx.globalAlpha = 1;
+  },
+
+  // ── 渲染循环 ──
+  loop(time) {
+    if (!this.running) return;
+    const dt = time - this.lastTime;
+    this.lastTime = time;
+
+    // 背景
+    const bg = this.bgFrames[this.currentScene];
+    if (bg && bg.complete && bg.naturalWidth) {
+      ctx.drawImage(bg, 0, 0, 960, 640);
+    } else {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, 960, 640);
+    }
+
+    // 雨效
+    this.renderRain(dt);
+
+    // 状态栏更新
+    this.updateUI();
+
+    requestAnimationFrame(t => this.loop(t));
+  },
+
+  // ── 场景切换 ──
+  goScene(sceneId) {
+    this.currentScene = sceneId;
+    const scene = SCENES[sceneId];
+    if (!scene) return;
+
+    document.getElementById('scene-name').textContent = scene.displayName || sceneId;
+
+    // 雨效控制
+    this.rain.active = scene.hasRain !== false;
+    this.rain.intensity = scene.rainIntensity || 1.0;
+
+    if (scene.onEnter) scene.onEnter();
+  },
+
+  // ── 点击处理 ──
+  handleClick(e) {
+    if (this.isDialogueActive) return;
+
+    const rect = this.canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (960 / rect.width);
+    const my = (e.clientY - rect.top) * (640 / rect.height);
+
+    const scene = SCENES[this.currentScene];
+    if (!scene || !scene.hotspots) return;
+
+    for (const hs of scene.hotspots) {
+      if (mx >= hs.x && mx <= hs.x + hs.w && my >= hs.y && my <= hs.y + hs.h) {
+        if (hs.condition && !hs.condition()) continue;
+        if (hs.action) hs.action();
+        return;
+      }
+    }
+  },
+
+  // ── 对话系统 ──
+  showDialogue(speaker, text, choices, portraitKey) {
+    return new Promise((resolve) => {
+      this.isDialogueActive = true;
+      const box = document.getElementById('dialogue-box');
+      const portrait = document.getElementById('dialogue-portrait');
+      const speakerEl = document.getElementById('dialogue-speaker');
+      const textEl = document.getElementById('dialogue-text');
+      const choicesEl = document.getElementById('dialogue-choices');
+
+      box.style.display = 'block';
+      speakerEl.textContent = speaker || '';
+      textEl.textContent = text;
+      choicesEl.innerHTML = '';
+
+      // 头像
+      if (portraitKey && this.portraits[portraitKey]) {
+        portrait.src = this.portraits[portraitKey].src;
+        portrait.classList.add('visible');
+      } else {
+        portrait.classList.remove('visible');
+      }
+
+      if (choices && choices.length > 0) {
+        for (const choice of choices) {
+          const btn = document.createElement('button');
+          btn.className = 'choice-btn';
+          btn.textContent = choice.text;
+          btn.onclick = () => {
+            box.style.display = 'none';
+            this.isDialogueActive = false;
+            if (choice.action) choice.action();
+            resolve(choice.index || 0);
+          };
+          choicesEl.appendChild(btn);
+        }
+      } else {
+        // 点击继续
+        const handler = () => {
+          box.style.display = 'none';
+          this.isDialogueActive = false;
+          this.canvas.removeEventListener('click', handler);
+          resolve();
+        };
+        setTimeout(() => this.canvas.addEventListener('click', handler), 100);
+      }
+    });
+  },
+
+  async showCasualChat(lines) {
+    for (const line of lines) {
+      await this.showDialogue(line.speaker, line.text, null, line.portrait);
+    }
+  },
+
+  // ── 物品系统 ──
+  addItem(item) {
+    if (!this.inventory.includes(item)) {
+      this.inventory.push(item);
+    }
+  },
+
+  hasItem(item) {
+    return this.inventory.includes(item);
+  },
+
+  removeItem(item) {
+    this.inventory = this.inventory.filter(i => i !== item);
+  },
+
+  // ── 好友系统 ──
+  addFriend(name) {
+    if (!this.friends.includes(name)) {
+      this.friends.push(name);
+      this.checkEnding();
+    }
+  },
+
+  hasFriend(name) {
+    return this.friends.includes(name);
+  },
+
+  // ── 检查结局 ──
+  checkEnding() {
+    // 收集所有朋友后触发结局
+    if (this.friends.length >= 5) {
+      setTimeout(() => this.showEnding(), 2000);
+    }
+  },
+
+  showEnding() {
+    const ending = document.getElementById('ending-screen');
+    const textEl = document.getElementById('ending-text');
+
+    const friendNames = {
+      shopkeeper: '📚 灰灰（书店老板）',
+      butterfly: '🦋 小蓝（蝴蝶）',
+      bird: '🐦 知更（小鸟）',
+      fish: '🐟 金金（锦鲤）',
+      moon: '🦉 月月（猫头鹰）',
+    };
+
+    let html = '<p>小猫喵喵在这个雨夜，找到了躲雨的地方，<br>';
+    html += '遇见了温暖的朋友，看到了广阔的世界。</p>';
+    html += '<p style="margin-top: 20px; color: var(--warm);">🐱 喵喵的好朋友们：</p>';
+    for (const f of this.friends) {
+      html += `<p>${friendNames[f] || f}</p>`;
+    }
+    html += '<p style="margin-top: 30px; color: var(--rain); font-style: italic;">';
+    html += '"即使是最小的猫，也能在雨中找到属于自己的星空。"</p>';
+
+    textEl.innerHTML = html;
+    ending.style.display = 'flex';
+  },
+
+  // ── UI 更新 ──
+  updateUI() {
+    const invEl = document.getElementById('inventory-display');
+    invEl.innerHTML = this.inventory.map(i => `<span class="inv-item">${i}</span>`).join('');
+
+    const friendsEl = document.getElementById('friends-display');
+    const friendEmojis = {
+      shopkeeper: '📚', butterfly: '🦋', bird: '🐦', fish: '🐟', moon: '🦉'
+    };
+    friendsEl.textContent = this.friends.map(f => friendEmojis[f] || '❤️').join(' ') || '';
+  },
+};
+
+// ============================================================
+//  🗺️ 场景定义
+// ============================================================
+
+const SCENES = {
+  // ── 场景 1: 雨夜小巷 ──
+  rainy_alley: {
+    displayName: '🌧️ 雨夜小巷',
+    hasRain: true,
+    rainIntensity: 1.2,
+    onEnter() {
+      if (!Game.flags.intro_done) {
+        Game.flags.intro_done = true;
+        Game.showCasualChat([
+          { speaker: null, text: '雨，下个不停。' },
+          { speaker: null, text: '一只湿漉漉的小猫蜷缩在纸箱里。\n它叫喵喵，是一只刚离开家的小橘猫。' },
+          { speaker: null, text: '纸箱越来越湿了。\n喵喵需要找到一个真正的躲雨的地方。' },
+          { speaker: '喵喵', text: '喵呜……好冷啊。\n那边好像有灯光……', portrait: 'miao' },
+        ]);
+      }
+    },
+    hotspots: [
+      {
+        x: 580, y: 300, w: 200, h: 200,
+        label: '🏠 前方的灯光',
+        condition: () => !Game.flags.bookshop_discovered,
+        action() {
+          Game.flags.bookshop_discovered = true;
+          Game.showCasualChat([
+            { speaker: '喵喵', text: '是……是一家书店！\n门缝里透出暖暖的光。', portrait: 'miao' },
+            { speaker: null, text: '喵喵鼓起勇气，朝灯光走去。' },
+          ]).then(() => {
+            Game.goScene('bookshop');
+          });
+        },
+      },
+      {
+        x: 580, y: 300, w: 200, h: 200,
+        label: '🏠 回书店',
+        condition: () => Game.flags.bookshop_discovered,
+        action() {
+          Game.goScene('bookshop');
+        },
+      },
+      {
+        x: 100, y: 450, w: 150, h: 100,
+        label: '📦 检查纸箱',
+        condition: () => !Game.flags.checked_box,
+        action() {
+          Game.flags.checked_box = true;
+          Game.addItem('🧣 小围巾');
+          Game.showCasualChat([
+            { speaker: null, text: '纸箱里有一条旧旧的小围巾。\n也许是上一只小猫留下的。' },
+            { speaker: '喵喵', text: '好柔软……带着走吧！', portrait: 'miao' },
+          ]);
+        },
+      },
+    ],
+  },
+
+  // ── 场景 2: 温暖书店 ──
+  bookshop: {
+    displayName: '📚 温暖书店',
+    hasRain: false,
+    onEnter() {
+      if (!Game.flags.met_shopkeeper) {
+        Game.flags.met_shopkeeper = true;
+        Game.addFriend('shopkeeper');
+        Game.showCasualChat([
+          { speaker: null, text: '推开猫门，一股温暖的气息扑面而来。\n满屋子的书，壁炉里的火噼啪作响。' },
+          { speaker: '灰灰', text: '哎呀，一只淋湿的小家伙！\n快进来，快进来。', portrait: 'shopkeeper' },
+          { speaker: '灰灰', text: '我叫灰灰，这家书店的老板。\n看你冷的，先烤烤火吧。', portrait: 'shopkeeper' },
+          { speaker: '喵喵', text: '谢、谢谢……喵。\n好暖和……', portrait: 'miao' },
+          { speaker: '灰灰', text: '不用客气。每一只迷路的猫，\n都值得一个温暖的角落。', portrait: 'shopkeeper' },
+          { speaker: null, text: '❤️ 灰灰成为了你的第一个朋友！' },
+          { speaker: '灰灰', text: '对了，书店后面有个花园。\n雨快停了，你可以去看看。\n那里住着一些有趣的朋友。', portrait: 'shopkeeper' },
+        ]);
+      }
+    },
+    hotspots: [
+      {
+        x: 50, y: 100, w: 200, h: 300,
+        label: '📖 看看书',
+        condition: () => !Game.flags.read_book,
+        action() {
+          Game.flags.read_book = true;
+          Game.showCasualChat([
+            { speaker: null, text: '喵喵翻开一本书。上面画着星空。' },
+            { speaker: '喵喵', text: '哇……好多星星。\n世界原来这么大吗？', portrait: 'miao' },
+            { speaker: '灰灰', text: '每一本书都是一个世界哦。\n等你准备好了，外面的世界更大呢。', portrait: 'shopkeeper' },
+          ]);
+        },
+      },
+      {
+        x: 700, y: 150, w: 200, h: 350,
+        label: '🚪 去花园',
+        action() {
+          Game.goScene('garden');
+        },
+      },
+      {
+        x: 400, y: 400, w: 150, h: 100,
+        label: '☕ 壁炉旁休息',
+        condition: () => Game.flags.read_book && !Game.flags.rested,
+        action() {
+          Game.flags.rested = true;
+          Game.showCasualChat([
+            { speaker: null, text: '喵喵在壁炉旁打了个盹。\n毛发渐渐干了，身体暖洋洋的。' },
+            { speaker: '喵喵', text: '呼噜噜……好舒服……', portrait: 'miao' },
+            { speaker: null, text: '休息之后，喵喵感觉充满了力量！' },
+          ]);
+        },
+      },
+    ],
+  },
+
+  // ── 场景 3: 秘密花园 ──
+  garden: {
+    displayName: '🌺 秘密花园',
+    hasRain: false,
+    onEnter() {
+      if (!Game.flags.garden_intro) {
+        Game.flags.garden_intro = true;
+        Game.showCasualChat([
+          { speaker: null, text: '雨停了。\n花园里的一切都在闪闪发光。' },
+          { speaker: null, text: '花朵上挂着水珠，蝴蝶开始飞舞。\n一只蓝色的蝴蝶停在喵喵面前。' },
+        ]);
+      }
+    },
+    hotspots: [
+      {
+        x: 300, y: 100, w: 200, h: 200,
+        label: '🦋 和蝴蝶说话',
+        condition: () => !Game.flags.met_butterfly,
+        action() {
+          Game.flags.met_butterfly = true;
+          Game.addFriend('butterfly');
+          Game.showCasualChat([
+            { speaker: '小蓝', text: '你好呀，小猫！\n你的毛色好漂亮，像小太阳！', portrait: 'butterfly' },
+            { speaker: '喵喵', text: '你、你好……你飞得好轻盈。', portrait: 'miao' },
+            { speaker: '小蓝', text: '嘻嘻，我叫小蓝！\n雨后的花园最好玩了，到处都是水珠做的镜子！', portrait: 'butterfly' },
+            { speaker: '喵喵', text: '镜子？', portrait: 'miao' },
+            { speaker: '小蓝', text: '对呀！每颗水珠里都有一个小世界。\n你看——', portrait: 'butterfly' },
+            { speaker: null, text: '小蓝落在一朵玫瑰上，水珠里映出了彩虹。' },
+            { speaker: '小蓝', text: '世界很大，但美丽的东西\n就在每一个小小的角落里。', portrait: 'butterfly' },
+            { speaker: null, text: '🦋 小蓝成为了你的朋友！' },
+          ]);
+        },
+      },
+      {
+        x: 600, y: 50, w: 150, h: 150,
+        label: '🐦 树上的小鸟',
+        condition: () => Game.flags.met_butterfly && !Game.flags.met_bird,
+        action() {
+          Game.flags.met_bird = true;
+          Game.addFriend('bird');
+          Game.showCasualChat([
+            { speaker: '知更', text: '叽叽！新朋友！\n你就是灰灰说的那只小猫吧？', portrait: 'bird' },
+            { speaker: '喵喵', text: '灰灰跟你说了？', portrait: 'miao' },
+            { speaker: '知更', text: '当然啦！灰灰什么都跟我说。\n我叫知更，每天在这棵树上唱歌。', portrait: 'bird' },
+            { speaker: '知更', text: '你想不想看看更大的世界？\n我可以带你去一个好地方！', portrait: 'bird' },
+            { speaker: '喵喵', text: '更大的世界……', portrait: 'miao' },
+            { speaker: '知更', text: '跟我来！过一座小桥，\n就到我最喜欢的地方了！', portrait: 'bird' },
+            { speaker: null, text: '🐦 知更成为了你的朋友！' },
+          ]);
+        },
+      },
+      {
+        x: 750, y: 350, w: 150, h: 200,
+        label: '🌉 跟知更去小桥',
+        condition: () => Game.flags.met_bird,
+        action() {
+          Game.goScene('bridge');
+        },
+      },
+    ],
+  },
+
+  // ── 场景 4: 小石桥 ──
+  bridge: {
+    displayName: '🌉 小石桥',
+    hasRain: false,
+    onEnter() {
+      if (!Game.flags.bridge_intro) {
+        Game.flags.bridge_intro = true;
+        Game.showCasualChat([
+          { speaker: null, text: '一座古老的石桥横跨在清澈的小溪上。\n夕阳把一切都染成了金色。' },
+          { speaker: '知更', text: '看！水里有住在这里的朋友！', portrait: 'bird' },
+        ]);
+      }
+    },
+    hotspots: [
+      {
+        x: 300, y: 350, w: 300, h: 200,
+        label: '🐟 水里的锦鲤',
+        condition: () => !Game.flags.met_fish,
+        action() {
+          Game.flags.met_fish = true;
+          Game.addFriend('fish');
+          Game.showCasualChat([
+            { speaker: '金金', text: '噗噜噜——上面是谁呀？', portrait: 'fish' },
+            { speaker: '喵喵', text: '是、是我……喵喵。\n你在水里不冷吗？', portrait: 'miao' },
+            { speaker: '金金', text: '冷？水里可暖和啦！\n而且我能看见你们看不到的东西。', portrait: 'fish' },
+            { speaker: '喵喵', text: '什么东西？', portrait: 'miao' },
+            { speaker: '金金', text: '水底的石头上，刻着古老的花纹。\n据说很久很久以前，这座桥是\n连接两个世界的入口。', portrait: 'fish' },
+            { speaker: '知更', text: '两个世界？', portrait: 'bird' },
+            { speaker: '金金', text: '是呀！一个是有形的世界，\n一个是无形的世界——\n就是心里的世界。', portrait: 'fish' },
+            { speaker: '金金', text: '每一只走过这座桥的动物，\n都会变得更了解自己。', portrait: 'fish' },
+            { speaker: null, text: '🐟 金金成为了你的朋友！' },
+          ]);
+        },
+      },
+      {
+        x: 100, y: 50, w: 200, h: 200,
+        label: '🌳 大树上的猫头鹰',
+        condition: () => Game.flags.met_fish && !Game.flags.met_moon,
+        action() {
+          Game.flags.met_moon = true;
+          Game.addFriend('moon');
+          Game.showCasualChat([
+            { speaker: null, text: '天色渐暗，一只猫头鹰从大树上飞下来。' },
+            { speaker: '月月', text: '咕咕。又一只小猫走过了桥。', portrait: 'moon' },
+            { speaker: '喵喵', text: '又？还有别的猫来过吗？', portrait: 'miao' },
+            { speaker: '月月', text: '很多很多。每一只都有自己的故事。\n我叫月月，在这里看了很久很久的星星。', portrait: 'moon' },
+            { speaker: '月月', text: '你想看看星星吗？\n跟我来，我带你去一个\n能看到整个世界的地方。', portrait: 'moon' },
+            { speaker: '喵喵', text: '整个世界？', portrait: 'miao' },
+            { speaker: '月月', text: '对。从最高的地方往下看，\n你会发现——\n世界比你想象的更大，也更温暖。', portrait: 'moon' },
+            { speaker: null, text: '🦉 月月成为了你的朋友！' },
+          ]);
+        },
+      },
+      {
+        x: 700, y: 100, w: 200, h: 300,
+        label: '🌙 跟月月去高处',
+        condition: () => Game.flags.met_moon,
+        action() {
+          Game.goScene('rooftop');
+        },
+      },
+    ],
+  },
+
+  // ── 场景 5: 星空屋顶 ──
+  rooftop: {
+    displayName: '🌟 星空屋顶',
+    hasRain: false,
+    onEnter() {
+      if (!Game.flags.rooftop_intro) {
+        Game.flags.rooftop_intro = true;
+        Game.showCasualChat([
+          { speaker: null, text: '喵喵跟着月月，爬上了书店的屋顶。' },
+          { speaker: null, text: '整个小镇在脚下展开。\n每一扇窗户都透出暖暖的灯光。' },
+          { speaker: '月月', text: '看，这就是你的世界。', portrait: 'moon' },
+          { speaker: '喵喵', text: '好……好美……', portrait: 'miao' },
+          { speaker: '月月', text: '今晚的雨，把你带到了这里。\n你遇见了灰灰、小蓝、知更、金金……', portrait: 'moon' },
+          { speaker: '月月', text: '还有我。\n每一段相遇都不是偶然。', portrait: 'moon' },
+          { speaker: '喵喵', text: '我以前好害怕。\n害怕下雨，害怕冷，害怕一个人。', portrait: 'miao' },
+          { speaker: '月月', text: '但现在呢？', portrait: 'moon' },
+          { speaker: '喵喵', text: '现在……我有了朋友。\n我不再是一个人了。', portrait: 'miao' },
+          { speaker: null, text: '一颗流星划过夜空。' },
+          { speaker: '月月', text: '许个愿吧，小猫。', portrait: 'moon' },
+        ]);
+      }
+    },
+    hotspots: [
+      {
+        x: 350, y: 200, w: 250, h: 250,
+        label: '🔭 用望远镜看星星',
+        condition: () => !Game.flags.looked_stars,
+        action() {
+          Game.flags.looked_stars = true;
+          Game.showCasualChat([
+            { speaker: null, text: '喵喵透过望远镜看向夜空。' },
+            { speaker: null, text: '无数的星星在闪烁。\n每一颗都在说：你不是一个人。' },
+            { speaker: '喵喵', text: '原来……世界这么大，这么美。\n而我，终于找到了属于我的角落。', portrait: 'miao' },
+          ]);
+        },
+      },
+      {
+        x: 100, y: 350, w: 200, h: 150,
+        label: '🐱 和朋友们在一起',
+        condition: () => Game.flags.looked_stars,
+        action() {
+          Game.showCasualChat([
+            { speaker: '灰灰', text: '喵喵，书店永远为你留着一盏灯。', portrait: 'shopkeeper' },
+            { speaker: '小蓝', text: '明天花园里会有彩虹，一定要来看哦！', portrait: 'butterfly' },
+            { speaker: '知更', text: '叽叽！我每天早上都会来叫你起床！', portrait: 'bird' },
+            { speaker: '金金', text: '水底的世界也很精彩，改天带你来看！', portrait: 'fish' },
+            { speaker: '月月', text: '每个夜晚，我都会在屋顶守护你。', portrait: 'moon' },
+            { speaker: '喵喵', text: '谢谢你们……\n这是我最棒的一个雨夜。', portrait: 'miao' },
+            { speaker: null, text: '🌧️→🌈 猫猫躲雨奇遇记\n\n未完待续……' },
+          ]);
+        },
+      },
+    ],
+  },
+};
+
+// ============================================================
+//  🚀 启动游戏
+// ============================================================
+Game.init();
+</script>
+</body>
+</html>

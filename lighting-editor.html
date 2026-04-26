@@ -1,0 +1,2499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAST SIGNAL — 光照开发系统 v2</title>
+<style>
+/* ══════════════════════════════════════════════════════════════════
+   CYBERPUNK LIGHTING EDITOR — Enhanced UI
+   ══════════════════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deepest: #06060c;
+  --bg-deep: #0a0a14;
+  --bg-panel: #0e0e1a;
+  --bg-surface: #12121e;
+  --bg-hover: #181830;
+  --border: #1a1a2e;
+  --border-glow: #00ff8844;
+  --text: #c0c0d0;
+  --text-dim: #666680;
+  --text-muted: #444460;
+  --accent: #00ff88;
+  --accent-dim: #00cc6a;
+  --danger: #ff4466;
+  --danger-dim: #cc3355;
+  --warn: #ffaa22;
+  --purple: #aa66ff;
+  --cyan: #00ccff;
+  --pink: #ff66aa;
+}
+
+body {
+  background: var(--bg-deepest);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  overflow: hidden;
+  height: 100vh;
+  font-size: 12px;
+  user-select: none;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+#preview-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  min-width: 0;
+}
+
+#sidebar {
+  width: 380px;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex-shrink: 0;
+}
+
+/* ── Canvas Area ────────────────────────────────────────────────── */
+#canvas-wrap {
+  position: relative;
+  background: #000;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 0 30px rgba(0,255,136,0.03);
+}
+
+#lighting-canvas {
+  display: block;
+  width: 960px;
+  height: 640px;
+  image-rendering: auto;
+  cursor: crosshair;
+}
+
+#marker-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 960px; height: 640px;
+  pointer-events: none;
+}
+
+#coord-overlay {
+  position: absolute;
+  top: 8px; left: 8px;
+  background: rgba(0,0,0,0.75);
+  color: var(--accent);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  pointer-events: none;
+  display: none;
+  border: 1px solid var(--border);
+}
+
+/* ── Toolbar ────────────────────────────────────────────────────── */
+#toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tb-btn {
+  background: rgba(0,255,136,0.06);
+  border: 1px solid rgba(0,255,136,0.2);
+  color: var(--accent);
+  padding: 5px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tb-btn:hover { background: rgba(0,255,136,0.15); border-color: rgba(0,255,136,0.4); }
+.tb-btn.active { background: rgba(0,255,136,0.2); border-color: var(--accent); }
+.tb-btn.danger { color: var(--danger); border-color: rgba(255,68,102,0.25); }
+.tb-btn.danger:hover { background: rgba(255,68,102,0.12); }
+.tb-btn.warn { color: var(--warn); border-color: rgba(255,170,34,0.25); }
+.tb-btn.warn:hover { background: rgba(255,170,34,0.12); }
+.tb-btn.purple { color: var(--purple); border-color: rgba(170,102,255,0.25); }
+.tb-btn.purple:hover { background: rgba(170,102,255,0.12); }
+.tb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.tb-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+
+#time-display {
+  color: var(--text-dim);
+  font-size: 10px;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Status Bar ─────────────────────────────────────────────────── */
+#status-bar {
+  padding: 8px 0;
+  font-size: 10px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#status-bar .ok { color: var(--accent); }
+
+#shortcut-hints {
+  margin-left: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+#shortcut-hints kbd {
+  display: inline-block;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: inherit;
+  font-size: 9px;
+  color: var(--text-dim);
+  line-height: 1.4;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.3);
+}
+
+#save-status {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+#save-status.saving { color: var(--warn); }
+#save-status.done { color: var(--accent); }
+#save-status.error { color: var(--danger); }
+
+/* ── Sidebar Sections ───────────────────────────────────────────── */
+#sidebar::-webkit-scrollbar { width: 5px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb { background: #1a1a30; border-radius: 3px; }
+
+.sidebar-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-section:last-child { border-bottom: none; }
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.section-header:hover { background: var(--bg-hover); }
+
+.section-header .chevron {
+  color: var(--text-muted);
+  font-size: 10px;
+  transition: transform 0.2s;
+  width: 12px;
+  text-align: center;
+}
+
+.section-header.collapsed .chevron { transform: rotate(-90deg); }
+
+.section-header .label {
+  color: var(--accent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+}
+
+.section-header .badge {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.section-body {
+  padding: 0 14px 12px 14px;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.section-body.collapsed {
+  max-height: 0 !important;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Scene Selector ─────────────────────────────────────────────── */
+#scene-select {
+  width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+#scene-select:focus { border-color: var(--border-glow); outline: none; }
+
+/* ── Light List ─────────────────────────────────────────────────── */
+#light-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.light-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-surface);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.1s;
+  font-size: 11px;
+}
+
+.light-item:hover { border-color: #1a1a3e; background: var(--bg-hover); }
+.light-item.selected { border-color: var(--border-glow); background: rgba(0,255,136,0.05); }
+
+.light-swatch {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  border: 1px solid #333;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px currentColor;
+}
+
+.light-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.light-type-badge {
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--bg-deep);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.light-actions { display: flex; gap: 2px; }
+
+.light-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: 2px;
+  transition: all 0.15s;
+}
+
+.light-btn:hover { color: var(--accent); background: rgba(0,255,136,0.1); }
+.light-btn.delete:hover { color: var(--danger); background: rgba(255,68,102,0.1); }
+
+/* ── Property Controls ──────────────────────────────────────────── */
+#props-panel { display: none; }
+#props-panel.visible { display: block; }
+
+.prop-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.prop-label {
+  width: 55px;
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.prop-input {
+  flex: 1;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  border-radius: 3px;
+}
+
+.prop-input:focus { border-color: var(--border-glow); outline: none; }
+
+/* Slider styling */
+.slider-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 1px solid var(--accent-dim);
+  box-shadow: 0 0 6px rgba(0,255,136,0.3);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 1px solid var(--accent-dim);
+}
+
+.slider-val {
+  font-size: 10px;
+  color: var(--text-dim);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Log slider gradient backgrounds */
+.log-slider input[type="range"] {
+  background: linear-gradient(to right, #0a0a14 0%, #1a1a3e 40%, #00ff8844 100%);
+}
+
+/* Collapsible property groups */
+.prop-group {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.prop-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 9px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: background 0.1s;
+}
+
+.prop-group-header:hover { background: var(--bg-hover); }
+
+.prop-group-header .chevron {
+  font-size: 8px;
+  transition: transform 0.2s;
+}
+
+.prop-group-header.collapsed .chevron { transform: rotate(-90deg); }
+
+.prop-group-body {
+  padding: 8px 10px;
+  overflow: hidden;
+  transition: max-height 0.25s ease, opacity 0.2s ease;
+}
+
+.prop-group-body.collapsed {
+  max-height: 0 !important;
+  padding: 0 10px;
+  opacity: 0;
+}
+
+/* ── Color Picker ───────────────────────────────────────────────── */
+.color-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.color-r-slider { flex: 1; }
+.color-r-slider input[type="range"] { background: linear-gradient(to right, #000, #f00); }
+.color-g-slider input[type="range"] { background: linear-gradient(to right, #000, #0f0); }
+.color-b-slider input[type="range"] { background: linear-gradient(to right, #000, #00f); }
+
+.hex-input {
+  width: 70px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 10px;
+  border-radius: 3px;
+  text-align: center;
+}
+
+.hex-input:focus { border-color: var(--border-glow); outline: none; }
+
+.color-presets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.color-preset {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.color-preset:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 8px currentColor;
+  z-index: 1;
+}
+
+/* ── Props Empty State ──────────────────────────────────────────── */
+#props-empty {
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 20px 0;
+  text-align: center;
+}
+
+/* ── Toast ──────────────────────────────────────────────────────── */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--accent);
+  color: var(--bg-deep);
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 999;
+  box-shadow: 0 4px 20px rgba(0,255,136,0.3);
+}
+
+#toast.show { transform: translateX(-50%) translateY(0); }
+
+#toast.error {
+  background: var(--danger);
+  box-shadow: 0 4px 20px rgba(255,68,102,0.3);
+}
+
+/* ── GitHub Save Modal ──────────────────────────────────────────── */
+#save-modal {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+#save-modal.visible { display: flex; }
+
+.save-modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 0 40px rgba(0,255,136,0.1);
+}
+
+.save-modal-box h3 {
+  color: var(--accent);
+  font-size: 14px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+.save-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.save-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.save-step .icon { width: 16px; text-align: center; }
+.save-step.pending .icon { color: var(--text-muted); }
+.save-step.running .icon { color: var(--warn); animation: pulse 1s infinite; }
+.save-step.done .icon { color: var(--accent); }
+.save-step.error .icon { color: var(--danger); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.save-modal-box .close-btn {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.save-modal-box .close-btn:hover { background: var(--bg-hover); }
+
+/* ── Keyboard shortcut hint (bottom-right corner) ───────────────── */
+#shortcuts-hint {
+  position: fixed;
+  bottom: 8px;
+  right: 8px;
+  font-size: 9px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+#shortcuts-hint kbd {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-family: inherit;
+}
+
+/* ── Eyedropper button ──────────────────────────────────────────── */
+#btn-depth-overlay.active {
+  background: rgba(0, 200, 255, 0.2);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+#depth-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 960px; height: 640px;
+  pointer-events: none;
+  opacity: 0.35;
+  mix-blend-mode: screen;
+  display: none;
+}
+
+#depth-overlay.visible { display: block; }
+
+#btn-eyedropper.active {
+  background: rgba(255,170,34,0.2);
+  border-color: var(--warn);
+  color: var(--warn);
+}
+
+/* ── Confirm dialog ─────────────────────────────────────────────── */
+#confirm-dialog {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1001;
+  align-items: center;
+  justify-content: center;
+}
+
+#confirm-dialog.visible { display: flex; }
+
+.confirm-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 20px;
+  width: 320px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(255,68,102,0.15);
+}
+
+.confirm-box p {
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.confirm-box .btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.confirm-box button {
+  padding: 6px 20px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+}
+
+.confirm-box .btn-cancel {
+  background: var(--bg-surface);
+  color: var(--text);
+}
+
+.confirm-box .btn-ok {
+  background: rgba(255,68,102,0.15);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.confirm-box .btn-ok:hover { background: rgba(255,68,102,0.25); }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Preview Area -->
+  <div id="preview-area">
+    <div id="toolbar">
+      <button class="tb-btn" id="btn-play" title="播放/暂停 (Space)">⏵ 播放</button>
+      <button class="tb-btn" id="btn-reset" title="重置时间">↺ 重置</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="btn-add-point" title="添加点光源">+ 点光源</button>
+      <button class="tb-btn" id="btn-add-dir" title="添加方向光">+ 方向光</button>
+      <button class="tb-btn" id="btn-add-global" title="添加全局光">+ 全局光</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn warn" id="btn-randomize-all" title="随机全部光源 (全局)">🎲 全部随机</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" id="btn-save" title="保存并创建 PR">💾 保存 PR</button>
+      <button class="tb-btn purple" id="btn-export" title="导出当前帧">📷 导出帧</button>
+      <button class="tb-btn" id="btn-depth-overlay" title="显示/隐藏深度图叠加 (D)">🗺️ 深度图</button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn danger" id="btn-reset-scene" title="重置场景到默认值">⚠ 重置场景</button>
+      <div id="time-display">t = 0.00s</div>
+    </div>
+
+    <div id="canvas-wrap">
+      <canvas id="lighting-canvas" width="960" height="640"></canvas>
+      <canvas id="depth-overlay" width="960" height="640"></canvas>
+      <canvas id="marker-overlay" width="960" height="640"></canvas>
+      <div id="coord-overlay"></div>
+    </div>
+
+    <div id="status-bar">
+      <span class="ok">●</span>
+      <span id="status-text">光照引擎就绪</span>
+      <span id="shortcut-hints">
+        <kbd>Space</kbd> 播放  <kbd>Del</kbd> 删除  <kbd>R</kbd> 随机  <kbd>Shift+拖拽</kbd> Z轴  <kbd>I</kbd> 吸色  <kbd>D</kbd> 深度图
+      </span>
+      <span id="save-status"></span>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <!-- Scene Section -->
+    <div class="sidebar-section">
+      <div class="section-header" data-section="scene">
+        <span class="chevron">▼</span>
+        <span class="label">场景</span>
+      </div>
+      <div class="section-body" id="section-scene">
+        <select id="scene-select">
+          <option value="">-- 选择场景 --</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Light List Section -->
+    <div class="sidebar-section">
+      <div class="section-header" data-section="lights">
+        <span class="chevron">▼</span>
+        <span class="label">光源列表</span>
+        <span class="badge" id="light-count">0</span>
+      </div>
+      <div class="section-body" id="section-lights">
+        <div id="light-list"></div>
+      </div>
+    </div>
+
+    <!-- Properties Section -->
+    <div class="sidebar-section">
+      <div class="section-header" data-section="props">
+        <span class="chevron">▼</span>
+        <span class="label">光源属性</span>
+      </div>
+      <div class="section-body" id="section-props">
+        <div id="props-panel">
+          <!-- Name & Type -->
+          <div class="prop-row">
+            <span class="prop-label">名称</span>
+            <input class="prop-input" id="p-name" type="text">
+          </div>
+          <div class="prop-row">
+            <span class="prop-label">类型</span>
+            <select class="prop-input" id="p-type">
+              <option value="point">点光源</option>
+              <option value="directional">方向光</option>
+              <option value="global">全局光</option>
+            </select>
+          </div>
+
+          <!-- Position Group (collapsible) -->
+          <div class="prop-group" id="g-position">
+            <div class="prop-group-header" data-group="position">
+              <span class="chevron">▼</span> 位置 (XYZ)
+            </div>
+            <div class="prop-group-body" id="group-position">
+              <div class="prop-row">
+                <span class="prop-label">X</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-x" min="0" max="1" step="0.005">
+                  <span class="slider-val" id="p-x-val">0.500</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">Y</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-y" min="0" max="1" step="0.005">
+                  <span class="slider-val" id="p-y-val">0.500</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">Z 深度</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-depth" min="0" max="1" step="0.01">
+                  <span class="slider-val" id="p-depth-val">0.30</span>
+                  <button class="tb-btn" id="btn-snap-depth" title="根据深度图自动设置 Z" style="padding:2px 6px;font-size:9px;">📍自动</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Direction Group (directional lights) -->
+          <div class="prop-group" id="g-direction">
+            <div class="prop-group-header" data-group="direction">
+              <span class="chevron">▼</span> 方向
+            </div>
+            <div class="prop-group-body" id="group-direction">
+              <div class="prop-row">
+                <span class="prop-label">DX</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-dx" min="-3" max="3" step="0.01">
+                  <span class="slider-val" id="p-dx-val">1.00</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">DY</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-dy" min="-3" max="3" step="0.01">
+                  <span class="slider-val" id="p-dy-val">0.30</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Color Group (collapsible) -->
+          <div class="prop-group" id="g-color">
+            <div class="prop-group-header" data-group="color">
+              <span class="chevron">▼</span> 颜色
+            </div>
+            <div class="prop-group-body" id="group-color">
+              <div class="prop-row">
+                <div class="color-preview" id="p-color-preview"></div>
+                <div style="flex:1">
+                  <div class="prop-row" style="margin-bottom:3px">
+                    <span class="prop-label" style="width:14px;color:#f44">R</span>
+                    <div class="slider-wrap color-r-slider">
+                      <input type="range" id="p-cr" min="0" max="255" step="1">
+                      <span class="slider-val" id="p-cr-val">255</span>
+                    </div>
+                  </div>
+                  <div class="prop-row" style="margin-bottom:3px">
+                    <span class="prop-label" style="width:14px;color:#4f4">G</span>
+                    <div class="slider-wrap color-g-slider">
+                      <input type="range" id="p-cg" min="0" max="255" step="1">
+                      <span class="slider-val" id="p-cg-val">255</span>
+                    </div>
+                  </div>
+                  <div class="prop-row" style="margin-bottom:0">
+                    <span class="prop-label" style="width:14px;color:#66f">B</span>
+                    <div class="slider-wrap color-b-slider">
+                      <input type="range" id="p-cb" min="0" max="255" step="1">
+                      <span class="slider-val" id="p-cb-val">255</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="prop-row" style="margin-top:6px">
+                <span class="prop-label">HEX</span>
+                <input class="hex-input" id="p-hex" type="text" value="#ffffff" maxlength="7">
+              </div>
+              <div class="prop-row" style="margin-top:4px">
+                <span class="prop-label"></span>
+                <button class="tb-btn" id="btn-eyedropper" title="从画布吸色 (I)">🎨 吸色</button>
+              </div>
+              <div class="color-presets" id="color-presets"></div>
+            </div>
+          </div>
+
+          <!-- Intensity & Radius -->
+          <div class="prop-group" id="g-intensity">
+            <div class="prop-group-header" data-group="intensity">
+              <span class="chevron">▼</span> 强度 & 半径
+            </div>
+            <div class="prop-group-body" id="group-intensity">
+              <div class="prop-row">
+                <span class="prop-label">强度</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-intensity" min="0" max="5" step="0.005">
+                  <span class="slider-val" id="p-intensity-val">0.300</span>
+                </div>
+              </div>
+              <div class="prop-row" id="p-radius-row">
+                <span class="prop-label">半径</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-radius" min="10" max="800" step="5">
+                  <span class="slider-val" id="p-radius-val">150</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Animation Group (collapsible) -->
+          <div class="prop-group" id="g-animation">
+            <div class="prop-group-header" data-group="animation">
+              <span class="chevron">▼</span> 动画相位
+            </div>
+            <div class="prop-group-body" id="group-animation">
+              <div class="prop-row">
+                <span class="prop-label">类型</span>
+                <select class="prop-input" id="p-phase-type">
+                  <option value="steady">恒定</option>
+                  <option value="sine">正弦</option>
+                  <option value="pulse">脉冲</option>
+                  <option value="flicker">闪烁</option>
+                  <option value="car_sweep">车灯扫过</option>
+                  <option value="lightning">闪电</option>
+                  <option value="drift">漂移 (非周期)</option>
+                  <option value="burst">闪光 (非周期)</option>
+                </select>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">速度</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-phase-speed" min="0" max="10" step="0.05">
+                  <span class="slider-val" id="p-phase-speed-val">1.00</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">最小</span>
+                <div class="slider-wrap log-slider">
+                  <input type="range" id="p-phase-min" min="0" max="1" step="0.005">
+                  <span class="slider-val" id="p-phase-min-val">0.100</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">最大</span>
+                <div class="slider-wrap log-slider">
+                  <input type="range" id="p-phase-max" min="0" max="1" step="0.005">
+                  <span class="slider-val" id="p-phase-max-val">0.400</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">偏移</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-phase-offset" min="0" max="20" step="0.1">
+                  <span class="slider-val" id="p-phase-offset-val">0.0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Noise Amount -->
+          <div class="prop-group" id="g-noise">
+            <div class="prop-group-header" data-group="noise">
+              <span class="chevron">▼</span> 随机扰动
+            </div>
+            <div class="prop-group-body" id="group-noise">
+              <div class="prop-row">
+                <span class="prop-label">强度噪声</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-noise-intensity" min="0" max="1" step="0.01" value="0">
+                  <span class="slider-val" id="p-noise-intensity-val">0.00</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">速度噪声</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-noise-speed" min="0" max="1" step="0.01" value="0">
+                  <span class="slider-val" id="p-noise-speed-val">0.00</span>
+                </div>
+              </div>
+              <div class="prop-row">
+                <span class="prop-label">相位噪声</span>
+                <div class="slider-wrap">
+                  <input type="range" id="p-noise-phase" min="0" max="1" step="0.01" value="0">
+                  <span class="slider-val" id="p-noise-phase-val">0.00</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Randomize Button -->
+          <div style="margin-top:8px">
+            <button class="tb-btn warn" id="btn-randomize" style="width:100%">🎲 随机此光源</button>
+          </div>
+        </div>
+        <div id="props-empty">
+          点击光源列表中的项目查看属性<br>
+          <span style="font-size:9px;color:var(--text-muted)">或在画布上拖拽移动点光源</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Save Modal -->
+<div id="save-modal">
+  <div class="save-modal-box">
+    <h3>💾 保存并创建 PR</h3>
+    <div class="save-steps" id="save-steps">
+      <div class="save-step pending" data-step="branch"><span class="icon">○</span> 创建分支 <code>lighting-edit-{ts}</code></div>
+      <div class="save-step pending" data-step="commit"><span class="icon">○</span> 提交配置文件</div>
+      <div class="save-step pending" data-step="pr"><span class="icon">○</span> 创建 Pull Request</div>
+    </div>
+    <div id="save-result" style="display:none;margin-bottom:12px">
+      <a id="save-pr-link" href="#" target="_blank" style="color:var(--accent);font-size:11px;"></a>
+    </div>
+    <button class="close-btn" id="save-modal-close">关闭</button>
+  </div>
+</div>
+
+<!-- Confirm Dialog -->
+<div id="confirm-dialog">
+  <div class="confirm-box">
+    <p id="confirm-msg"></p>
+    <div class="btn-row">
+      <button class="btn-cancel" id="confirm-cancel">取消</button>
+      <button class="btn-ok" id="confirm-ok">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- Keyboard Shortcuts Hint -->
+<div id="shortcuts-hint">
+  <kbd>Space</kbd> 播放暂停 &nbsp; <kbd>Del</kbd> 删除 &nbsp; <kbd>R</kbd> 随机 &nbsp; <kbd>S</kbd> 保存
+</div>
+
+<script src="lighting-engine.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+// ENHANCED LIGHTING EDITOR v2
+// ══════════════════════════════════════════════════════════════════
+
+const GITHUB_REPO = 'ampresent/last-signal';
+function getGitHubToken() {
+  return localStorage.getItem('gh_token') || '';
+}
+function setGitHubToken(t) {
+  if (t) localStorage.setItem('gh_token', t);
+  else localStorage.removeItem('gh_token');
+}
+const CONFIG_PATH = 'lighting-config.json';
+
+const COLOR_PRESETS = [
+  { name: '暖白',   color: [1.0, 0.92, 0.75] },
+  { name: '冷白',   color: [0.85, 0.9, 1.0] },
+  { name: '霓虹粉', color: [1.0, 0.1, 0.6] },
+  { name: '霓虹青', color: [0.1, 0.9, 1.0] },
+  { name: '霓虹绿', color: [0.1, 1.0, 0.3] },
+  { name: '琥珀',   color: [1.0, 0.75, 0.2] },
+  { name: '红',     color: [1.0, 0.15, 0.1] },
+  { name: '蓝',     color: [0.2, 0.4, 1.0] },
+  { name: '紫',     color: [0.7, 0.1, 0.9] },
+  { name: '品红',   color: [1.0, 0.0, 0.5] },
+  { name: '金',     color: [1.0, 0.84, 0.0] },
+  { name: '冰蓝',   color: [0.5, 0.8, 1.0] },
+];
+
+const PLEASING_PALETTE = [
+  [1.0, 0.92, 0.75], [0.85, 0.9, 1.0], [1.0, 0.1, 0.6],
+  [0.1, 0.9, 1.0], [0.1, 1.0, 0.3], [1.0, 0.75, 0.2],
+  [1.0, 0.15, 0.1], [0.2, 0.4, 1.0], [0.7, 0.1, 0.9],
+  [1.0, 0.4, 0.6], [0.3, 0.6, 0.9], [0.5, 1.0, 0.5],
+  [0.9, 0.5, 0.1], [0.1, 0.7, 0.8], [0.8, 0.2, 0.8],
+];
+
+// ── Utility ────────────────────────────────────────────────────────
+
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(v =>
+    Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')
+  ).join('');
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  return [
+    parseInt(hex.slice(0, 2), 16) / 255,
+    parseInt(hex.slice(2, 4), 16) / 255,
+    parseInt(hex.slice(4, 6), 16) / 255
+  ];
+}
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function rand(min, max) { return min + Math.random() * (max - min); }
+
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+
+function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function fmt(v, d = 3) { return Number(v).toFixed(d); }
+
+// ── Logarithmic Slider Mapping ─────────────────────────────────────
+// pos: slider position 0-1, returns actual value
+function logSliderToVal(pos) {
+  return Math.pow(pos, 2.2);
+}
+function valToLogSlider(val) {
+  return Math.pow(val, 1/2.2);
+}
+
+// ── Confirm Dialog ─────────────────────────────────────────────────
+
+function showConfirm(msg) {
+  return new Promise(resolve => {
+    const dialog = document.getElementById('confirm-dialog');
+    document.getElementById('confirm-msg').textContent = msg;
+    dialog.classList.add('visible');
+    const ok = document.getElementById('confirm-ok');
+    const cancel = document.getElementById('confirm-cancel');
+    function cleanup() {
+      dialog.classList.remove('visible');
+      ok.removeEventListener('click', onOk);
+      cancel.removeEventListener('click', onCancel);
+    }
+    function onOk() { cleanup(); resolve(true); }
+    function onCancel() { cleanup(); resolve(false); }
+    ok.addEventListener('click', onOk);
+    cancel.addEventListener('click', onCancel);
+  });
+}
+
+// ── Editor State ───────────────────────────────────────────────────
+
+const Editor = {
+  engine: null,
+  config: null,
+  defaultConfig: null,
+  currentScene: null,
+  selectedLightId: null,
+  playing: true,
+  mouseUV: { x: 0, y: 0 },
+  dragging: false,
+  dragAxis: null, // null = free, 'x', 'y', 'z'
+  gizmoHoverAxis: null, // null, 'x', 'y', 'z'
+  eyedropperMode: false,
+  _suppressUpdate: false,
+
+
+  async init() {
+    const canvas = document.getElementById('lighting-canvas');
+    this.engine = new LightingEngine(canvas);
+    this.engine.onUpdate = (t) => {
+      this._onFrame(t);
+    };
+
+    // Load config
+    try {
+      const resp = await fetch(CONFIG_PATH);
+      this.config = await resp.json();
+      this.defaultConfig = JSON.parse(JSON.stringify(this.config));
+    } catch (err) {
+      this._toast(`加载配置失败: ${err.message}`, true);
+      return;
+    }
+
+    // Populate scene selector
+    const sel = document.getElementById('scene-select');
+    for (const [id, scene] of Object.entries(this.config.scenes)) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = `${scene.name} (${id})`;
+      sel.appendChild(opt);
+    }
+
+    // Color presets
+    this._buildColorPresets();
+
+    // Bind events
+    this._bindEvents();
+
+    // Load first scene
+    const firstScene = Object.keys(this.config.scenes)[0];
+    sel.value = firstScene;
+    this.selectScene(firstScene);
+  },
+
+  _bindEvents() {
+    // Scene select
+    document.getElementById('scene-select').addEventListener('change', (e) => this.selectScene(e.target.value));
+
+    // Canvas
+    const canvas = document.getElementById('lighting-canvas');
+    canvas.addEventListener('mousedown', (e) => this._onCanvasMouseDown(e));
+    canvas.addEventListener('mousemove', (e) => this._onCanvasMouseMove(e));
+    canvas.addEventListener('mouseup', (e) => this._onCanvasMouseUp(e));
+    canvas.addEventListener('mouseleave', () => {
+      document.getElementById('coord-overlay').style.display = 'none';
+      this.dragging = false;
+      this.dragAxis = null;
+      this.gizmoHoverAxis = null;
+      canvas.style.cursor = this.eyedropperMode ? 'crosshair' : 'crosshair';
+    });
+
+    // Toolbar
+    document.getElementById('btn-play').addEventListener('click', () => this.togglePlay());
+    document.getElementById('btn-reset').addEventListener('click', () => this.resetTime());
+    document.getElementById('btn-add-point').addEventListener('click', () => this.addLight('point'));
+    document.getElementById('btn-add-dir').addEventListener('click', () => this.addLight('directional'));
+    document.getElementById('btn-add-global').addEventListener('click', () => this.addLight('global'));
+    document.getElementById('btn-randomize-all').addEventListener('click', () => this.randomizeAll());
+    document.getElementById('btn-save').addEventListener('click', () => this.saveToGithub());
+    document.getElementById('btn-export').addEventListener('click', () => this.exportFrame());
+    document.getElementById('btn-reset-scene').addEventListener('click', () => this.resetScene());
+    document.getElementById('btn-randomize').addEventListener('click', () => this.randomizeSelected());
+    document.getElementById('btn-snap-depth').addEventListener('click', () => this.snapSelectedDepth());
+
+    // Eyedropper
+    document.getElementById('btn-eyedropper').addEventListener('click', () => this.toggleEyedropper());
+    document.getElementById('btn-depth-overlay').addEventListener('click', () => this.toggleDepthOverlay());
+
+    // Save modal close
+    document.getElementById('save-modal-close').addEventListener('click', () => {
+      document.getElementById('save-modal').classList.remove('visible');
+    });
+
+    // Section collapsible headers
+    for (const header of document.querySelectorAll('.section-header')) {
+      header.addEventListener('click', () => {
+        const section = header.dataset.section;
+        const body = document.getElementById(`section-${section}`);
+        if (body) {
+          header.classList.toggle('collapsed');
+          body.classList.toggle('collapsed');
+        }
+      });
+    }
+
+    // Prop group collapsible headers
+    for (const header of document.querySelectorAll('.prop-group-header')) {
+      header.addEventListener('click', () => {
+        const group = header.dataset.group;
+        const body = document.getElementById(`group-${group}`);
+        if (body) {
+          header.classList.toggle('collapsed');
+          body.classList.toggle('collapsed');
+        }
+      });
+    }
+
+    // Property inputs — sliders
+    const sliderInputs = [
+      'p-x', 'p-y', 'p-depth', 'p-dx', 'p-dy',
+      'p-cr', 'p-cg', 'p-cb',
+      'p-intensity', 'p-radius',
+      'p-phase-speed', 'p-phase-min', 'p-phase-max', 'p-phase-offset',
+      'p-noise-intensity', 'p-noise-speed', 'p-noise-phase'
+    ];
+
+    for (const id of sliderInputs) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      el.addEventListener('input', () => {
+        this._updateSliderDisplay(id);
+        if (id.startsWith('p-cr') || id.startsWith('p-cg') || id.startsWith('p-cb')) {
+          this._syncColorFromSliders();
+        }
+        this._onPropChange();
+      });
+    }
+
+    // Non-slider prop inputs
+    document.getElementById('p-name').addEventListener('change', () => this._onPropChange());
+    document.getElementById('p-type').addEventListener('change', () => this._onPropChange());
+    document.getElementById('p-phase-type').addEventListener('change', () => this._onPropChange());
+
+    // Hex input
+    document.getElementById('p-hex').addEventListener('change', () => {
+      const hex = document.getElementById('p-hex').value;
+      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+        const [r, g, b] = hexToRgb(hex);
+        document.getElementById('p-cr').value = Math.round(r * 255);
+        document.getElementById('p-cg').value = Math.round(g * 255);
+        document.getElementById('p-cb').value = Math.round(b * 255);
+        this._updateSliderDisplay('p-cr');
+        this._updateSliderDisplay('p-cg');
+        this._updateSliderDisplay('p-cb');
+        this._syncColorFromSliders();
+        this._onPropChange();
+      }
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => this._onKeyDown(e));
+  },
+
+  // ── Color Presets ────────────────────────────────────────────────
+
+  _buildColorPresets() {
+    const container = document.getElementById('color-presets');
+    for (const preset of COLOR_PRESETS) {
+      const btn = document.createElement('div');
+      btn.className = 'color-preset';
+      btn.style.background = rgbToHex(...preset.color);
+      btn.style.color = rgbToHex(...preset.color);
+      btn.title = preset.name;
+      btn.addEventListener('click', () => {
+        const [r, g, b] = preset.color;
+        document.getElementById('p-cr').value = Math.round(r * 255);
+        document.getElementById('p-cg').value = Math.round(g * 255);
+        document.getElementById('p-cb').value = Math.round(b * 255);
+        this._updateSliderDisplay('p-cr');
+        this._updateSliderDisplay('p-cg');
+        this._updateSliderDisplay('p-cb');
+        this._syncColorFromSliders();
+        this._onPropChange();
+      });
+      container.appendChild(btn);
+    }
+  },
+
+  // ── Slider Display Update ───────────────────────────────────────
+
+  _updateSliderDisplay(id) {
+    const el = document.getElementById(id);
+    const valEl = document.getElementById(id + '-val');
+    if (!el || !valEl) return;
+    const rawV = parseFloat(el.value);
+
+    // Log-scale sliders: display the log-mapped actual value
+    const logSliders = ['p-phase-min', 'p-phase-max'];
+    const isLog = logSliders.includes(id);
+
+    if (id === 'p-radius') {
+      valEl.textContent = Math.round(rawV);
+    } else if (id === 'p-phase-speed' || id === 'p-phase-offset' || id.startsWith('p-d')) {
+      valEl.textContent = fmt(rawV, 2);
+    } else if (id.startsWith('p-noise-')) {
+      valEl.textContent = fmt(rawV, 2);
+    } else if (id.startsWith('p-cr') || id.startsWith('p-cg') || id.startsWith('p-cb')) {
+      valEl.textContent = Math.round(rawV);
+    } else if (isLog) {
+      // Log-scale: show the actual mapped value
+      const actualV = logSliderToVal(rawV);
+      valEl.textContent = fmt(actualV, 3);
+    } else {
+      valEl.textContent = fmt(rawV, 3);
+    }
+  },
+
+  _syncColorFromSliders() {
+    const r = parseInt(document.getElementById('p-cr').value);
+    const g = parseInt(document.getElementById('p-cg').value);
+    const b = parseInt(document.getElementById('p-cb').value);
+    const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
+    document.getElementById('p-hex').value = hex;
+    document.getElementById('p-color-preview').style.background = hex;
+    document.getElementById('p-color-preview').style.color = hex;
+  },
+
+  // ── Scene Management ────────────────────────────────────────────
+
+  async selectScene(sceneId) {
+    if (!sceneId || !this.config.scenes[sceneId]) return;
+    this.currentScene = sceneId;
+    this.selectedLightId = null;
+    this._depthImageData = null; // reset depth cache
+
+    try {
+      await this.engine.loadScene(sceneId, this.config);
+      // Load depth map for auto-depth sampling
+      await this._loadDepthMap(sceneId);
+      this.engine.start();
+      this.playing = true;
+      document.getElementById('btn-play').textContent = '⏸ 暂停';
+      this._updateLightList();
+      this._updatePropsPanel();
+      this._updateStatus();
+    } catch (err) {
+      this._toast(`加载失败: ${err.message}`, true);
+      console.error(err);
+    }
+  },
+
+  // ── Depth Map Sampling ──────────────────────────────────────────
+
+  async _loadDepthMap(sceneId) {
+    this._depthImageData = null;
+    const scene = this.config.scenes[sceneId];
+    if (!scene || !scene.depth) return;
+
+    try {
+      const img = new Image();
+      const loaded = await new Promise(resolve => {
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = `assets/${scene.depth}`;
+      });
+      if (!loaded) return;
+
+      const c = document.createElement('canvas');
+      c.width = 960; c.height = 640;
+      const cx = c.getContext('2d', { willReadFrequently: true });
+      cx.drawImage(img, 0, 0, 960, 640);
+      this._depthImageData = cx.getImageData(0, 0, 960, 640);
+      console.log(`🗺️ Depth map loaded for auto-depth: ${scene.depth}`);
+    } catch (e) {
+      console.warn('Depth map load failed:', e);
+    }
+  },
+
+  sampleDepth(nx, ny) {
+    if (!this._depthImageData) return null;
+    const px = Math.floor(nx * 960);
+    const py = Math.floor(ny * 640);
+    if (px < 0 || px >= 960 || py < 0 || py >= 640) return null;
+    const idx = (py * 960 + px) * 4;
+    // Depth map: grayscale, 0=near, 255=far → normalize to 0~1
+    const raw = this._depthImageData.data[idx];
+    return raw / 255;
+  },
+
+  autoDepthForLight(light) {
+    if (light.type !== 'point') return;
+    if (!this._depthImageData) return;
+    const d = this.sampleDepth(light.x, light.y);
+    if (d !== null) {
+      light.depth = Math.round(d * 100) / 100;
+    }
+  },
+
+  // ── Light Management ────────────────────────────────────────────
+
+  addLight(type) {
+    if (!this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    if (scene.lights.length >= 16) {
+      this._toast('最多 16 个光源', true);
+      return;
+    }
+    const id = `light_${Date.now().toString(36)}`;
+    const idx = scene.lights.length + 1;
+
+    const defaults = {
+      point: {
+        id, name: `点光源 ${idx}`, type: 'point',
+        x: 0.5, y: 0.5, depth: 0.3,
+        color: [1, 1, 1], radius: 150, intensity: 0.3,
+        phase: { type: 'steady', speed: 1, min: 0.2, max: 0.4 }
+      },
+      directional: {
+        id, name: `方向光 ${idx}`, type: 'directional',
+        dir: [1, 0.3],
+        color: [1, 1, 1], intensity: 0.2,
+        phase: { type: 'steady', speed: 1, min: 0.15, max: 0.25 }
+      },
+      global: {
+        id, name: `全局光 ${idx}`, type: 'global',
+        color: [1, 1, 1], intensity: 0.3,
+        phase: { type: 'steady', speed: 1, min: 0.2, max: 0.4 }
+      }
+    };
+
+    const light = defaults[type] || defaults.point;
+    // Auto-depth for point lights
+    if (light.type === 'point') {
+      this.autoDepthForLight(light);
+    }
+    scene.lights.push(light);
+    this.engine.addLight(light);
+    this.selectedLightId = id;
+    this._updateLightList();
+    this._updatePropsPanel();
+    this._toast(`已添加: ${light.name}` + (light.type === 'point' ? ` (深度: ${light.depth})` : ''));
+  },
+
+  async removeLight(id) {
+    const confirmed = await showConfirm('确定删除此光源？');
+    if (!confirmed) return;
+    if (!this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    scene.lights = scene.lights.filter(l => l.id !== id);
+    this.engine.removeLight(id);
+    if (this.selectedLightId === id) this.selectedLightId = null;
+    this._updateLightList();
+    this._updatePropsPanel();
+    this._toast('光源已删除');
+  },
+
+  selectLight(id) {
+    this.selectedLightId = id;
+    this._updateLightList();
+    this._updatePropsPanel();
+  },
+
+  // ── Property Sync ───────────────────────────────────────────────
+
+  _onPropChange() {
+    if (this._suppressUpdate) return;
+    if (!this.selectedLightId || !this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    const light = scene.lights.find(l => l.id === this.selectedLightId);
+    if (!light) return;
+
+    light.name = document.getElementById('p-name').value;
+    light.type = document.getElementById('p-type').value;
+
+    // Position (sliders)
+    light.x = parseFloat(document.getElementById('p-x').value) || 0;
+    light.y = parseFloat(document.getElementById('p-y').value) || 0;
+    light.depth = parseFloat(document.getElementById('p-depth').value) || 0.3;
+
+    // Direction
+    light.dir = [
+      parseFloat(document.getElementById('p-dx').value) || 0,
+      parseFloat(document.getElementById('p-dy').value) || 0
+    ];
+
+    // Color from sliders
+    const r = parseInt(document.getElementById('p-cr').value) / 255;
+    const g = parseInt(document.getElementById('p-cg').value) / 255;
+    const b = parseInt(document.getElementById('p-cb').value) / 255;
+    light.color = [r, g, b];
+
+    // Intensity: linear scale (allows values > 1.0 for HDR-like effects)
+    light.intensity = parseFloat(document.getElementById('p-intensity').value) || 0;
+    light.radius = parseFloat(document.getElementById('p-radius').value) || 150;
+
+    // Phase: log-scale for min/max
+    light.phase = {
+      type: document.getElementById('p-phase-type').value,
+      speed: parseFloat(document.getElementById('p-phase-speed').value) || 1,
+      min: logSliderToVal(parseFloat(document.getElementById('p-phase-min').value) || 0),
+      max: logSliderToVal(parseFloat(document.getElementById('p-phase-max').value) || 0),
+      offset: parseFloat(document.getElementById('p-phase-offset').value) || 0
+    };
+
+    // Noise: random perturbation for organic feel
+    light.noise = {
+      intensity: parseFloat(document.getElementById('p-noise-intensity').value) || 0,
+      speed: parseFloat(document.getElementById('p-noise-speed').value) || 0,
+      phase: parseFloat(document.getElementById('p-noise-phase').value) || 0
+    };
+
+    // Sync to engine
+    this.engine.updateLight(this.selectedLightId, light);
+    this._updateLightList();
+    this._updateVisibility();
+  },
+
+  _updatePropsPanel() {
+    const panel = document.getElementById('props-panel');
+    const empty = document.getElementById('props-empty');
+
+    if (!this.selectedLightId) {
+      panel.classList.remove('visible');
+      empty.style.display = 'block';
+      return;
+    }
+
+    const scene = this.config.scenes[this.currentScene];
+    const light = scene.lights.find(l => l.id === this.selectedLightId);
+    if (!light) {
+      panel.classList.remove('visible');
+      empty.style.display = 'block';
+      return;
+    }
+
+    this._suppressUpdate = true;
+    panel.classList.add('visible');
+    empty.style.display = 'none';
+
+    document.getElementById('p-name').value = light.name || '';
+    document.getElementById('p-type').value = light.type || 'point';
+
+    // Position sliders
+    document.getElementById('p-x').value = light.x ?? 0.5;
+    document.getElementById('p-y').value = light.y ?? 0.5;
+    document.getElementById('p-depth').value = light.depth ?? 0.3;
+    this._updateSliderDisplay('p-x');
+    this._updateSliderDisplay('p-y');
+    this._updateSliderDisplay('p-depth');
+
+    // Direction sliders
+    const dir = light.dir || [0, 0];
+    document.getElementById('p-dx').value = dir[0];
+    document.getElementById('p-dy').value = dir[1];
+    this._updateSliderDisplay('p-dx');
+    this._updateSliderDisplay('p-dy');
+
+    // Color sliders
+    const c = light.color || [1, 1, 1];
+    document.getElementById('p-cr').value = Math.round(c[0] * 255);
+    document.getElementById('p-cg').value = Math.round(c[1] * 255);
+    document.getElementById('p-cb').value = Math.round(c[2] * 255);
+    this._updateSliderDisplay('p-cr');
+    this._updateSliderDisplay('p-cg');
+    this._updateSliderDisplay('p-cb');
+    this._syncColorFromSliders();
+
+    // Intensity & radius — linear scale for intensity (allows > 1.0)
+    document.getElementById('p-intensity').value = light.intensity ?? 0.3;
+    document.getElementById('p-radius').value = light.radius ?? 150;
+    this._updateSliderDisplay('p-intensity');
+    this._updateSliderDisplay('p-radius');
+
+    // Phase — log-scale for min/max
+    const phase = light.phase || {};
+    document.getElementById('p-phase-type').value = phase.type || 'steady';
+    document.getElementById('p-phase-speed').value = phase.speed ?? 1;
+    document.getElementById('p-phase-min').value = valToLogSlider(phase.min ?? 0);
+    document.getElementById('p-phase-max').value = valToLogSlider(phase.max ?? 1);
+    document.getElementById('p-phase-offset').value = phase.offset ?? 0;
+    this._updateSliderDisplay('p-phase-speed');
+    this._updateSliderDisplay('p-phase-min');
+    this._updateSliderDisplay('p-phase-max');
+    this._updateSliderDisplay('p-phase-offset');
+
+    // Noise
+    const noise = light.noise || { intensity: 0, speed: 0, phase: 0 };
+    document.getElementById('p-noise-intensity').value = noise.intensity ?? 0;
+    document.getElementById('p-noise-speed').value = noise.speed ?? 0;
+    document.getElementById('p-noise-phase').value = noise.phase ?? 0;
+    this._updateSliderDisplay('p-noise-intensity');
+    this._updateSliderDisplay('p-noise-speed');
+    this._updateSliderDisplay('p-noise-phase');
+
+    this._updateVisibility();
+    this._suppressUpdate = false;
+  },
+
+  _updateVisibility() {
+    const type = document.getElementById('p-type').value;
+    document.getElementById('g-position').style.display = type === 'point' ? 'block' : 'none';
+    document.getElementById('g-direction').style.display = type === 'directional' ? 'block' : 'none';
+    document.getElementById('p-radius-row').style.display = type === 'global' ? 'none' : 'flex';
+  },
+
+  // ── Light List UI ───────────────────────────────────────────────
+
+  _updateLightList() {
+    const container = document.getElementById('light-list');
+    container.innerHTML = '';
+
+    if (!this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    document.getElementById('light-count').textContent = scene.lights.length;
+
+    for (const light of scene.lights) {
+      const div = document.createElement('div');
+      div.className = 'light-item' + (light.id === this.selectedLightId ? ' selected' : '');
+      div.addEventListener('click', () => this.selectLight(light.id));
+
+      const c = light.color || [1, 1, 1];
+      const hex = rgbToHex(...c);
+
+      div.innerHTML = `
+        <div class="light-swatch" style="background:${hex};color:${hex}"></div>
+        <span class="light-name">${light.name || light.id}</span>
+        <span class="light-type-badge">${light.type}</span>
+        <div class="light-actions">
+          <button class="light-btn" title="随机" data-action="randomize" data-id="${light.id}">🎲</button>
+          <button class="light-btn delete" title="删除" data-action="delete" data-id="${light.id}">✕</button>
+        </div>
+      `;
+
+      div.querySelector('[data-action="randomize"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.randomizeLight(light.id);
+      });
+
+      div.querySelector('[data-action="delete"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.removeLight(light.id);
+      });
+
+      container.appendChild(div);
+    }
+  },
+
+  // ── Eyedropper ──────────────────────────────────────────────────
+
+  toggleEyedropper() {
+    this.eyedropperMode = !this.eyedropperMode;
+    const btn = document.getElementById('btn-eyedropper');
+    const canvas = document.getElementById('lighting-canvas');
+    if (this.eyedropperMode) {
+      btn.classList.add('active');
+      canvas.style.cursor = 'crosshair';
+      this._toast('吸色模式：点击画布取色，按 Esc 退出');
+    } else {
+      btn.classList.remove('active');
+      canvas.style.cursor = 'crosshair';
+    }
+  },
+
+  // ── Depth Map Overlay ─────────────────────────────────────────
+
+  toggleDepthOverlay() {
+    this._depthOverlayVisible = !this._depthOverlayVisible;
+    const btn = document.getElementById('btn-depth-overlay');
+    const overlay = document.getElementById('depth-overlay');
+    if (this._depthOverlayVisible) {
+      btn.classList.add('active');
+      overlay.classList.add('visible');
+      this._renderDepthOverlay();
+      this._toast('深度图叠加：白色=近，黑色=远');
+    } else {
+      btn.classList.remove('active');
+      overlay.classList.remove('visible');
+    }
+  },
+
+  _renderDepthOverlay() {
+    if (!this._depthImageData) return;
+    const canvas = document.getElementById('depth-overlay');
+    const ctx = canvas.getContext('2d');
+    const imgData = ctx.createImageData(960, 640);
+    const src = this._depthImageData.data;
+    const dst = imgData.data;
+
+    for (let i = 0; i < src.length; i += 4) {
+      const depth = src[i]; // grayscale, 0=far, 255=near
+      // Colorize: near=white, far=dark blue
+      const v = depth;
+      dst[i]     = Math.floor(v * 0.4);     // R
+      dst[i + 1] = Math.floor(v * 0.6);     // G
+      dst[i + 2] = Math.floor(v * 1.0);     // B
+      dst[i + 3] = 180;                      // A
+    }
+
+    ctx.putImageData(imgData, 0, 0);
+  },
+
+  _sampleColorAtPixel(clientX, clientY) {
+    const canvas = document.getElementById('lighting-canvas');
+    const rect = canvas.getBoundingClientRect();
+    // Pixel position on the 960x640 canvas
+    const px = Math.round((clientX - rect.left) * (960 / rect.width));
+    const py = Math.round((clientY - rect.top) * (640 / rect.height));
+
+    // Use WebGL readPixels
+    const gl = this.engine.gl;
+    const pixel = new Uint8Array(4);
+    // WebGL readPixels reads from bottom-left, so flip Y
+    gl.readPixels(px, 640 - py, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+
+    const r = pixel[0] / 255;
+    const g = pixel[1] / 255;
+    const b = pixel[2] / 255;
+    return [r, g, b];
+  },
+
+  // ── Canvas Interaction ──────────────────────────────────────────
+
+  _getCanvasUV(e) {
+    const rect = e.target.getBoundingClientRect();
+    const x = (e.clientX - rect.left) * (960 / rect.width) / 960;
+    const y = (e.clientY - rect.top) * (640 / rect.height) / 640;
+    return { x: clamp(x, 0, 1), y: clamp(y, 0, 1) };
+  },
+
+  _getCanvasPixel(e) {
+    const rect = e.target.getBoundingClientRect();
+    const px = (e.clientX - rect.left) * (960 / rect.width);
+    const py = (e.clientY - rect.top) * (640 / rect.height);
+    return { px, py };
+  },
+
+  // ── Gizmo Helpers ───────────────────────────────────────────────
+
+  _getGizmoPositions(light) {
+    const cx = (light.x || 0.5) * 960;
+    const cy = (light.y || 0.5) * 640;
+    const gizmoLen = 40;
+    return {
+      cx, cy,
+      xEnd: { x: cx + gizmoLen, y: cy },         // Red arrow → right
+      yEnd: { x: cx, y: cy - gizmoLen },          // Green arrow → up
+      zEnd: { x: cx + gizmoLen * 0.6, y: cy + gizmoLen * 0.6 } // Blue → down-right
+    };
+  },
+
+  _checkGizmoHover(px, py, light) {
+    if (!light || light.type !== 'point') return null;
+    const g = this._getGizmoPositions(light);
+    const threshold = 10;
+
+    const distX = Math.sqrt((px - g.xEnd.x) ** 2 + (py - g.xEnd.y) ** 2);
+    const distY = Math.sqrt((px - g.yEnd.x) ** 2 + (py - g.yEnd.y) ** 2);
+    const distZ = Math.sqrt((px - g.zEnd.x) ** 2 + (py - g.zEnd.y) ** 2);
+
+    if (distX < threshold) return 'x';
+    if (distY < threshold) return 'y';
+    if (distZ < threshold) return 'z';
+    return null;
+  },
+
+  _onCanvasMouseDown(e) {
+    if (!this.currentScene) return;
+
+    // Eyedropper mode
+    if (this.eyedropperMode) {
+      const [r, g, b] = this._sampleColorAtPixel(e.clientX, e.clientY);
+      if (this.selectedLightId) {
+        const scene = this.config.scenes[this.currentScene];
+        const light = scene.lights.find(l => l.id === this.selectedLightId);
+        if (light) {
+          light.color = [r, g, b];
+          this.engine.updateLight(light.id, light);
+          this._updatePropsPanel();
+          this._updateLightList();
+        }
+      }
+      const hex = rgbToHex(r, g, b);
+      this._toast(`🎨 已取色: ${hex}`);
+      this.eyedropperMode = false;
+      document.getElementById('btn-eyedropper').classList.remove('active');
+      document.getElementById('lighting-canvas').style.cursor = 'crosshair';
+      return;
+    }
+
+    const uv = this._getCanvasUV(e);
+    const { px, py } = this._getCanvasPixel(e);
+    const scene = this.config.scenes[this.currentScene];
+
+    // Check gizmo handle click first (if a point light is selected)
+    if (this.selectedLightId) {
+      const selectedLight = scene.lights.find(l => l.id === this.selectedLightId);
+      if (selectedLight && selectedLight.type === 'point') {
+        const hoverAxis = this._checkGizmoHover(px, py, selectedLight);
+        if (hoverAxis) {
+          this.dragging = true;
+          this.dragAxis = hoverAxis;
+          this._dragStartUV = { ...uv };
+          this._dragStartLight = { x: selectedLight.x, y: selectedLight.y, depth: selectedLight.depth || 0.3 };
+          return;
+        }
+      }
+    }
+
+    // Shift+drag = Z axis mode
+    if (e.shiftKey && this.selectedLightId) {
+      const selectedLight = scene.lights.find(l => l.id === this.selectedLightId);
+      if (selectedLight && selectedLight.type === 'point') {
+        this.dragging = true;
+        this.dragAxis = 'z';
+        this._dragStartUV = { ...uv };
+        this._dragStartLight = { x: selectedLight.x, y: selectedLight.y, depth: selectedLight.depth || 0.3 };
+        return;
+      }
+    }
+
+    // Find closest point light
+    let closest = null;
+    let closestDist = Infinity;
+    for (const light of scene.lights) {
+      if (light.type !== 'point') continue;
+      const dx = (light.x || 0.5) - uv.x;
+      const dy = (light.y || 0.5) - uv.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < closestDist && dist < 0.06) {
+        closestDist = dist;
+        closest = light;
+      }
+    }
+
+    if (closest) {
+      this.selectLight(closest.id);
+      this.dragging = true;
+      this.dragAxis = null; // free drag
+      this._dragStartUV = { ...uv };
+      this._dragStartLight = { x: closest.x, y: closest.y, depth: closest.depth || 0.3 };
+    }
+  },
+
+  _onCanvasMouseMove(e) {
+    const uv = this._getCanvasUV(e);
+    const { px, py } = this._getCanvasPixel(e);
+    this.mouseUV = uv;
+
+    // Coordinate overlay
+    const overlay = document.getElementById('coord-overlay');
+    overlay.style.display = 'block';
+    const depthSample = this.sampleDepth(uv.x, uv.y);
+    const depthStr = depthSample !== null ? `  z: ${depthSample.toFixed(3)} (depth map)` : '';
+    overlay.textContent = `x: ${uv.x.toFixed(3)}  y: ${uv.y.toFixed(3)}${depthStr}`;
+
+    const canvas = document.getElementById('lighting-canvas');
+
+    // Gizmo hover detection
+    if (!this.dragging && this.selectedLightId && this.currentScene) {
+      const scene = this.config.scenes[this.currentScene];
+      const selectedLight = scene.lights.find(l => l.id === this.selectedLightId);
+      const hoverAxis = this._checkGizmoHover(px, py, selectedLight);
+      this.gizmoHoverAxis = hoverAxis;
+
+      if (hoverAxis) {
+        canvas.style.cursor = 'grab';
+      } else if (this.eyedropperMode) {
+        canvas.style.cursor = 'crosshair';
+      } else {
+        canvas.style.cursor = 'crosshair';
+      }
+    }
+
+    // Drag selected point light
+    if (this.dragging && this.selectedLightId && this._dragStartUV && this._dragStartLight) {
+      const scene = this.config.scenes[this.currentScene];
+      const light = scene.lights.find(l => l.id === this.selectedLightId);
+      if (light && light.type === 'point') {
+        const dx = uv.x - this._dragStartUV.x;
+        const dy = uv.y - this._dragStartUV.y;
+
+        if (this.dragAxis === 'x') {
+          light.x = clamp(this._dragStartLight.x + dx, 0, 1);
+          // Y stays the same
+        } else if (this.dragAxis === 'y') {
+          light.y = clamp(this._dragStartLight.y + dy, 0, 1);
+          // X stays the same
+        } else if (this.dragAxis === 'z') {
+          // Z axis: mouse Y movement controls depth
+          // Moving mouse up = deeper (lower z), down = closer (higher z)
+          light.depth = clamp(this._dragStartLight.depth - dy, 0, 1);
+          // X and Y stay the same
+        } else {
+          // Free X+Y drag
+          light.x = uv.x;
+          light.y = uv.y;
+          // Auto-depth from depth map
+          this.autoDepthForLight(light);
+        }
+
+        this.engine.updateLight(light.id, light);
+
+        // Update sliders without triggering change
+        this._suppressUpdate = true;
+        document.getElementById('p-x').value = light.x;
+        document.getElementById('p-y').value = light.y;
+        document.getElementById('p-depth').value = light.depth ?? 0.3;
+        this._updateSliderDisplay('p-x');
+        this._updateSliderDisplay('p-y');
+        this._updateSliderDisplay('p-depth');
+        this._suppressUpdate = false;
+      }
+    }
+  },
+
+  _onCanvasMouseUp(e) {
+    this.dragging = false;
+    this.dragAxis = null;
+    this._dragStartUV = null;
+    this._dragStartLight = null;
+  },
+
+  // ── Marker Overlay & Gizmo Drawing ──────────────────────────────
+
+  _drawMarkers() {
+    const canvas = document.getElementById('marker-overlay');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, 960, 640);
+
+    if (!this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+
+    for (const light of scene.lights) {
+      if (light.type !== 'point') continue;
+
+      const px = (light.x || 0.5) * 960;
+      const py = (light.y || 0.5) * 640;
+      const isSelected = light.id === this.selectedLightId;
+      const c = light.color || [1, 1, 1];
+      const hex = rgbToHex(...c);
+
+      // Crosshair for selected
+      if (isSelected) {
+        ctx.strokeStyle = hex;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(px, 0); ctx.lineTo(px, 640);
+        ctx.moveTo(0, py); ctx.lineTo(960, py);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // Glow
+      const grad = ctx.createRadialGradient(px, py, 0, px, py, isSelected ? 18 : 10);
+      grad.addColorStop(0, hex);
+      grad.addColorStop(1, 'transparent');
+      ctx.beginPath();
+      ctx.arc(px, py, isSelected ? 18 : 10, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.globalAlpha = isSelected ? 0.5 : 0.3;
+      ctx.fill();
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(px, py, isSelected ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = hex;
+      ctx.globalAlpha = 0.9;
+      ctx.fill();
+
+      // Ring
+      if (isSelected) {
+        ctx.beginPath();
+        ctx.arc(px, py, 14, 0, Math.PI * 2);
+        ctx.strokeStyle = hex;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.6;
+        ctx.stroke();
+      }
+
+      // Label
+      ctx.globalAlpha = 1;
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.fillStyle = isSelected ? '#00ff88' : '#666';
+      ctx.fillText(light.name || light.id, px + 12, py - 10);
+
+      // Depth indicator
+      if (isSelected) {
+        ctx.font = '8px JetBrains Mono, monospace';
+        ctx.fillStyle = '#444';
+        ctx.fillText(`z:${(light.depth || 0.3).toFixed(2)}`, px + 12, py + 2);
+      }
+
+      // ── 3D Gizmo for selected point light ──
+      if (isSelected) {
+        this._drawGizmo(ctx, light);
+      }
+    }
+  },
+
+  _drawGizmo(ctx, light) {
+    const g = this._getGizmoPositions(light);
+    const gizmoLen = 40;
+    const hover = this.gizmoHoverAxis;
+    const drag = this.dragAxis;
+
+    ctx.save();
+    ctx.globalAlpha = 1;
+
+    // Helper to draw an arrow
+    const drawArrow = (fromX, fromY, toX, toY, color, label, axisKey) => {
+      const isActive = (hover === axisKey || drag === axisKey);
+      const lineWidth = isActive ? 3 : 1.5;
+      const alpha = isActive ? 1.0 : 0.7;
+
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = lineWidth;
+
+      // Line
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.stroke();
+
+      // Arrowhead
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+      const headLen = isActive ? 10 : 8;
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headLen * Math.cos(angle - 0.4), toY - headLen * Math.sin(angle - 0.4));
+      ctx.lineTo(toX - headLen * Math.cos(angle + 0.4), toY - headLen * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fill();
+
+      // Label
+      ctx.globalAlpha = isActive ? 1.0 : 0.6;
+      ctx.font = '9px JetBrains Mono, monospace';
+      ctx.fillText(label, toX + 6, toY + 4);
+    };
+
+    // Red arrow → X axis (horizontal right)
+    drawArrow(g.cx, g.cy, g.xEnd.x, g.xEnd.y, '#ff4444', 'X', 'x');
+
+    // Green arrow → Y axis (vertical up)
+    drawArrow(g.cx, g.cy, g.yEnd.x, g.yEnd.y, '#44ff44', 'Y', 'y');
+
+    // Blue arrow → Z axis (diagonal down-right)
+    drawArrow(g.cx, g.cy, g.zEnd.x, g.zEnd.y, '#4488ff', 'Z', 'z');
+
+    // Center diamond
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(g.cx, g.cy - 4);
+    ctx.lineTo(g.cx + 4, g.cy);
+    ctx.lineTo(g.cx, g.cy + 4);
+    ctx.lineTo(g.cx - 4, g.cy);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  },
+
+  // ── Randomization ───────────────────────────────────────────────
+
+  randomizeLight(id) {
+    if (!this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    const light = scene.lights.find(l => l.id === id);
+    if (!light) return;
+
+    light.color = pickRandom(PLEASING_PALETTE);
+    light.intensity = rand(0.05, 0.8); // linear, wider range
+    light.phase = light.phase || {};
+    light.phase.speed = rand(0.5, 3.0);
+    light.phase.min = logSliderToVal(rand(0.1, 0.5));
+    light.phase.max = logSliderToVal(rand(0.4, 0.9));
+    if (light.type === 'point') {
+      light.radius = rand(60, 400);
+    }
+
+    this.engine.updateLight(id, light);
+
+    if (this.selectedLightId === id) {
+      this._updatePropsPanel();
+    }
+    this._updateLightList();
+    this._toast(`🎲 ${light.name} 已随机`);
+  },
+
+  randomizeSelected() {
+    if (this.selectedLightId) {
+      this.randomizeLight(this.selectedLightId);
+    }
+  },
+
+  snapSelectedDepth() {
+    if (!this.selectedLightId || !this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    const light = scene.lights.find(l => l.id === this.selectedLightId);
+    if (!light || light.type !== 'point') {
+      this._toast('仅支持点光源', true);
+      return;
+    }
+    this.autoDepthForLight(light);
+    this.engine.updateLight(light.id, light);
+    this._updatePropsPanel();
+    this._toast(`📍 深度已从深度图采样: ${light.depth.toFixed(3)}`);
+  },
+
+  randomizeAll() {
+    if (!this.currentScene) return;
+    const scene = this.config.scenes[this.currentScene];
+    for (const light of scene.lights) {
+      light.color = pickRandom(PLEASING_PALETTE);
+      light.intensity = rand(0.05, 0.8); // linear, wider range
+      light.phase = light.phase || {};
+      light.phase.speed = rand(0.5, 3.0);
+      light.phase.min = logSliderToVal(rand(0.1, 0.5));
+      light.phase.max = logSliderToVal(rand(0.4, 0.9));
+      if (light.type === 'point') {
+        light.radius = rand(60, 400);
+      }
+      this.engine.updateLight(light.id, light);
+    }
+
+    if (this.selectedLightId) {
+      this._updatePropsPanel();
+    }
+    this._updateLightList();
+    this._toast('🎲 全部光源已随机');
+  },
+
+  // ── Keyboard Shortcuts ──────────────────────────────────────────
+
+  _onKeyDown(e) {
+    // Ignore if typing in input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        this.togglePlay();
+        break;
+      case 'Delete':
+      case 'Backspace':
+        if (this.selectedLightId) {
+          e.preventDefault();
+          this.removeLight(this.selectedLightId);
+        }
+        break;
+      case 'r':
+      case 'R':
+        if (this.selectedLightId) {
+          e.preventDefault();
+          this.randomizeSelected();
+        }
+        break;
+      case 'i':
+      case 'I':
+        e.preventDefault();
+        this.toggleEyedropper();
+        break;
+      case 'd':
+      case 'D':
+        e.preventDefault();
+        this.toggleDepthOverlay();
+        break;
+      case 'Escape':
+        if (this.eyedropperMode) {
+          this.eyedropperMode = false;
+          document.getElementById('btn-eyedropper').classList.remove('active');
+          document.getElementById('lighting-canvas').style.cursor = 'crosshair';
+          this._toast('吸色模式已退出');
+        }
+        break;
+      case 's':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          this.saveToGithub();
+        }
+        break;
+    }
+  },
+
+  // ── Controls ────────────────────────────────────────────────────
+
+  togglePlay() {
+    if (this.playing) {
+      this.engine.stop();
+      this.playing = false;
+      document.getElementById('btn-play').textContent = '⏵ 播放';
+    } else {
+      this.engine.start();
+      this.playing = true;
+      document.getElementById('btn-play').textContent = '⏸ 暂停';
+    }
+  },
+
+  resetTime() {
+    this.engine.time = 0;
+    this._toast('时间已重置');
+  },
+
+  async resetScene() {
+    if (!this.currentScene) return;
+    const confirmed = await showConfirm(`确定重置 "${this.currentScene}" 的所有光源到默认值？`);
+    if (!confirmed) return;
+
+    const defaults = this.defaultConfig.scenes[this.currentScene];
+    if (defaults) {
+      this.config.scenes[this.currentScene].lights = JSON.parse(JSON.stringify(defaults.lights));
+      this.engine.setLights(this.config.scenes[this.currentScene].lights);
+      this.selectedLightId = null;
+      this._updateLightList();
+      this._updatePropsPanel();
+      this._toast('场景已重置');
+    }
+  },
+
+  exportFrame() {
+    const dataURL = this.engine.captureFrame();
+    const a = document.createElement('a');
+    a.href = dataURL;
+    a.download = `lighting_${this.currentScene}_${Date.now()}.png`;
+    a.click();
+    this._toast('帧已导出');
+  },
+
+  // ── GitHub Save ─────────────────────────────────────────────────
+
+  async saveToGithub() {
+    const json = JSON.stringify(this.config, null, 2);
+    const dateStr = new Date().toLocaleString('zh-CN');
+    const ts = Date.now();
+    const branchName = `lighting-edit-${ts}`;
+
+    // ── Try GitHub API first ──
+    let token = getGitHubToken();
+    if (!token) {
+      // Ask once — if cancelled, go straight to download
+      const input = prompt('输入 GitHub Token 以自动创建 PR（留空则下载文件）:');
+      if (input) { setGitHubToken(input); token = input; }
+    }
+    if (token) {
+      try {
+        await this._saveViaApi(token, branchName, dateStr, json);
+        return;
+      } catch (err) {
+        console.warn('GitHub API save failed, falling back to download:', err.message);
+        // If it's a CORS/network error, fall through to download
+        if (err.message.includes('Failed to fetch') || err.message.includes('CORS') || err.message.includes('NetworkError')) {
+          // Fall through to download
+        } else {
+          // API error (auth, etc) — show in modal
+          this._showSaveError(err.message);
+          return;
+        }
+      }
+    }
+
+    // ── Fallback: download config + show gh CLI instructions ──
+    this._saveAsDownload(json, branchName, dateStr);
+  },
+
+  async _saveViaApi(token, branchName, dateStr, json) {
+    const modal = document.getElementById('save-modal');
+    const steps = document.getElementById('save-steps');
+    const result = document.getElementById('save-result');
+    const prLink = document.getElementById('save-pr-link');
+
+    modal.classList.add('visible');
+    result.style.display = 'none';
+
+    for (const step of steps.querySelectorAll('.save-step')) {
+      step.className = 'save-step pending';
+      step.querySelector('.icon').textContent = '○';
+    }
+
+    const content = btoa(unescape(encodeURIComponent(json)));
+    const headers = {
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    };
+
+    // Step 1: Get default branch & HEAD sha
+    this._setSaveStep('branch', 'running');
+    const repoResp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}`, { headers });
+    if (!repoResp.ok) throw new Error(`获取仓库信息失败: ${repoResp.status}`);
+    const repoData = await repoResp.json();
+    const defaultBranch = repoData.default_branch || 'main';
+
+    const refResp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs/heads/${defaultBranch}`, { headers });
+    if (!refResp.ok) throw new Error(`获取分支引用失败: ${refResp.status}`);
+    const refData = await refResp.json();
+    const sha = refData.object.sha;
+
+    const createBranchResp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/git/refs`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ ref: `refs/heads/${branchName}`, sha })
+    });
+    if (!createBranchResp.ok) {
+      const errBody = await createBranchResp.json();
+      throw new Error(`创建分支失败: ${errBody.message || createBranchResp.status}`);
+    }
+    this._setSaveStep('branch', 'done');
+
+    // Step 2: Commit file
+    this._setSaveStep('commit', 'running');
+    let fileSha = null;
+    const getFileResp = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/contents/${CONFIG_PATH}?ref=${branchName}`, { headers }
+    );
+    if (getFileResp.ok) {
+      const fileData = await getFileResp.json();
+      fileSha = fileData.sha;
+    }
+
+    const commitBody = { message: `Update lighting config — ${dateStr}`, content, branch: branchName };
+    if (fileSha) commitBody.sha = fileSha;
+
+    const commitResp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${CONFIG_PATH}`, {
+      method: 'PUT', headers, body: JSON.stringify(commitBody)
+    });
+    if (!commitResp.ok) {
+      const errBody = await commitResp.json();
+      throw new Error(`提交失败: ${errBody.message || commitResp.status}`);
+    }
+    this._setSaveStep('commit', 'done');
+
+    // Step 3: Create PR
+    this._setSaveStep('pr', 'running');
+    const prResp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/pulls`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        title: `Lighting config update — ${dateStr}`,
+        head: branchName, base: defaultBranch,
+        body: `自动创建的光照配置更新。\n\n- 场景数: ${Object.keys(this.config.scenes).length}\n- 总光源数: ${Object.values(this.config.scenes).reduce((sum, s) => sum + s.lights.length, 0)}\n- 时间: ${dateStr}`
+      })
+    });
+    if (!prResp.ok) {
+      const errBody = await prResp.json();
+      throw new Error(`创建 PR 失败: ${errBody.message || prResp.status}`);
+    }
+    const prData = await prResp.json();
+    this._setSaveStep('pr', 'done');
+
+    prLink.href = prData.html_url;
+    prLink.textContent = `✅ PR 已创建: ${prData.title}`;
+    result.style.display = 'block';
+    this._toast('✅ PR 已创建成功！');
+  },
+
+  _saveAsDownload(json, branchName, dateStr) {
+    // Download config file
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lighting-config.json';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Show modal with gh CLI instructions
+    const modal = document.getElementById('save-modal');
+    const steps = document.getElementById('save-steps');
+    const result = document.getElementById('save-result');
+    const prLink = document.getElementById('save-pr-link');
+
+    modal.classList.add('visible');
+    result.style.display = 'none';
+
+    // Update steps to show download-only flow
+    steps.innerHTML = `
+      <div class="save-step done"><span class="icon">✓</span> 配置文件已下载</div>
+      <div class="save-step pending"><span class="icon" style="color:var(--warn)">ℹ</span> GitHub API 跨域受限，请在本地使用以下命令：</div>
+    `;
+
+    // Show gh CLI instructions
+    result.style.display = 'block';
+    prLink.href = '#';
+    prLink.style.cursor = 'default';
+    prLink.innerHTML = `
+      <div style="background:var(--bg-deep);border:1px solid var(--border);border-radius:4px;padding:10px;font-size:10px;line-height:1.6;white-space:pre;font-family:monospace;color:var(--text);text-align:left">
+<span style="color:var(--text-muted)"># 将下载的 lighting-config.json 放到项目根目录后执行：</span>
+git checkout -b ${branchName}
+git add lighting-config.json
+git commit -m "lighting config update — ${dateStr}"
+git push -u origin ${branchName}
+gh pr create --title "Lighting config update" --body "自动创建的光照配置更新"</div>
+    `;
+
+    this._toast('📥 配置已下载 — 请在本地用 gh CLI 创建 PR');
+  },
+
+  _showSaveError(msg) {
+    const modal = document.getElementById('save-modal');
+    const steps = document.getElementById('save-steps');
+    const result = document.getElementById('save-result');
+    const prLink = document.getElementById('save-pr-link');
+
+    modal.classList.add('visible');
+    result.style.display = 'none';
+
+    steps.innerHTML = `
+      <div class="save-step error"><span class="icon">✗</span> ${msg}</div>
+    `;
+  },
+
+  _setSaveStep(stepName, state) {
+    const step = document.querySelector(`.save-step[data-step="${stepName}"]`);
+    if (!step) return;
+    step.className = `save-step ${state}`;
+    const icons = { pending: '○', running: '⟳', done: '✓', error: '✗' };
+    step.querySelector('.icon').textContent = icons[state] || '○';
+  },
+
+  // ── Frame Callback ──────────────────────────────────────────────
+
+  _onFrame(t) {
+    document.getElementById('time-display').textContent = `t = ${t.toFixed(2)}s`;
+    this._drawMarkers();
+  },
+
+  _updateStatus() {
+    const scene = this.config.scenes[this.currentScene];
+    document.getElementById('status-text').textContent =
+      `${scene.name} — ${scene.lights.length} 个光源 — WebGL 实时渲染`;
+  },
+
+  _toast(msg, isError = false) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = isError ? 'show error' : 'show';
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => el.className = '', 2500);
+  }
+};
+
+// Boot
+window.addEventListener('DOMContentLoaded', () => Editor.init());
+</script>
+</body>
+</html>
